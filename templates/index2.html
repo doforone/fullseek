@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>飞鱼检索2</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            font-size: 16px;
+        }
+        .container {
+            height: calc(100% - 5rem);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column-reverse;
+            box-sizing: border-box;
+        }
+        .message {
+            margin: 0.375rem 0;
+            padding: 0.625rem;
+            background-color: #ffffff;
+            border-radius: 0.3125rem;
+            box-shadow: 0 0.0625rem 0.1875rem rgba(0,0,0,0.1);
+            width: 98%;
+            align-self: flex-start;
+            font-size: 1rem;
+            color: #000;
+            word-wrap: break-word;
+        }
+        .download-link {
+            color: blue;
+            text-decoration: none; /* 取消下划线 */
+            margin-left: 0.5rem; /* 配合4个空格的间距 */
+            width: 80px; /* 稍宽一些，适应完整文本 */
+            display: inline-block;
+            text-align: center;
+            cursor: pointer; /* 只有点击下载显示小手 */
+        }
+        .download-link:hover {
+            color: red; /* 鼠标悬浮时变为红色，仅适用于点击下载 */
+        }
+        .downloading {
+            color: orange;
+            cursor: default; /* 无小手 */
+        }
+        .completed {
+            color: green;
+            cursor: default; /* 无小手 */
+        }
+        .error {
+            color: red;
+            cursor: default; /* 无小手 */
+        }
+        .intro {
+            margin: 0.375rem 0;
+            padding: 1.25rem;
+            background-color: #e6f3ff;
+            border-radius: 0.5rem;
+            width: 98%;
+            align-self: flex-start;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.05);
+            word-wrap: break-word;
+        }
+        .intro h1 {
+            margin: 0 0 1rem 0;
+            font-size: 1.5rem;
+            color: #0056b3;
+            font-weight: bold;
+            text-align: center;
+        }
+        .intro p {
+            margin: 0.625rem 0;
+            font-size: 1rem;
+            color: #333;
+            line-height: 1.6;
+        }
+        .intro p strong {
+            color: #007bff;
+        }
+        .intro p .dark-gray {
+            color: #555;
+            font-weight: bold;
+        }
+        .intro p a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .intro p a:hover {
+            text-decoration: underline;
+        }
+        .load-more, .finished {
+            text-align: center;
+            color: #007bff;
+            padding: 0.625rem;
+            font-size: 0.875rem;
+        }
+        .load-more {
+            cursor: pointer;
+        }
+        .load-more:hover {
+            color: #ff0000;
+        }
+        .finished {
+            color: #666;
+        }
+        .divider {
+            width: 98%;
+            height: 0.0625rem;
+            background-color: #e8ecef;
+            margin: 0.625rem 0;
+            align-self: flex-start;
+        }
+        .input-area {
+            padding: 0.9375rem;
+            background-color: #ffffff;
+            border-top: 0.0625rem solid #e8ecef;
+            position: sticky;
+            bottom: 0;
+            box-sizing: border-box;
+            height: 5rem;
+            display: flex;
+            align-items: center;
+        }
+        .input-label {
+            font-size: 1rem;
+            color: #333;
+            margin-right: 0.625rem;
+            white-space: nowrap;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 0.75rem 0.9375rem;
+            border: 0.125rem solid #007bff;
+            border-radius: 0.5rem;
+            outline: none;
+            font-size: 1rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.1);
+            transition: border-color 0.3s, box-shadow 0.3s;
+            box-sizing: border-box;
+        }
+        .input-area input:focus {
+            border-color: #0056b3;
+            box-shadow: 0 0 0.5rem rgba(0,123,255,0.3);
+        }
+        .input-area input::placeholder {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="messageContainer"></div>
+    <div class="input-area">
+        <span class="input-label">飞鱼检索：</span>
+        <input type="text" id="userInput" maxlength="200" 
+               placeholder="多个关键词请用空格分隔，最多输入200字">
+    </div>
+
+    <script>
+        const container = document.getElementById('messageContainer');
+        const input = document.getElementById('userInput');
+        let currentPageMap = {};
+        let hasMoreMap = {};
+        let lastIdMap = {};
+
+        // 初始化时添加飞鱼检索介绍
+        window.onload = function() {
+            const introDiv = document.createElement('div');
+            introDiv.className = 'intro';
+            introDiv.innerHTML = `
+                <h1>欢迎使用飞鱼检索</h1>
+                <p><strong>飞鱼检索1：</strong> 实现文本内（行信息）（多词）快速检索，超大文本毫秒级响应</p>
+                <p><strong>飞鱼检索2：</strong> 实现指定目录下文件名内（多词）快速检索，超多文件毫秒级响应</p>
+                <p><span class="dark-gray">飞鱼检索相当于在本地搭建一个搜索引擎</span></p>
+                <p>开发者email：<a href="mailto:chaoxian102@gmail.com">chaoxian102@gmail.com</a>（超弦102）</p>
+            `;
+            container.insertBefore(introDiv, container.firstChild);
+        };
+
+        // AJAX 调用API
+        async function fetchApi(query, id = null) {
+            const url = id 
+                ? `/api/query?text=${encodeURIComponent(query)}&id=${id}`
+                : `/api/query?text=${encodeURIComponent(query)}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('网络错误');
+                return await response.json();
+            } catch (error) {
+                console.error('API请求失败:', error);
+                return [];
+            }
+        }
+
+        // 添加消息到容器
+        function addMessages(data, query, isNewQuery = false) {
+            if (isNewQuery) {
+                currentPageMap[query] = 1;
+                hasMoreMap[query] = false;
+                lastIdMap[query] = null;
+            }
+
+            const messages = data.slice(0, 10);
+            messages.forEach(([id, content]) => {
+                const div = document.createElement('div');
+                div.className = 'message';
+                // 支持超文本，一行显示下载状态
+                div.innerHTML = `${content}    <span class="download-link" data-id="${id}" onclick="startDownload(this, ${id})">点击下载</span>`;
+                container.insertBefore(div, container.firstChild);
+            });
+
+            // 添加分割线
+            const divider = document.createElement('div');
+            divider.className = 'divider';
+            container.insertBefore(divider, container.firstChild);
+
+            // 判断是否还有更多
+            hasMoreMap[query] = data.length > 10;
+            if (hasMoreMap[query] && data[10]) {
+                lastIdMap[query] = data[10][0];
+            }
+        }
+
+        // 添加加载更多或输出完毕提示
+        function addLoadMoreOrFinished(query) {
+            if (hasMoreMap[query]) {
+                const loadMore = document.createElement('div');
+                loadMore.className = 'load-more';
+                loadMore.textContent = '点击加载下一页';
+                loadMore.dataset.query = query;
+                loadMore.onclick = () => loadNextPage(query, loadMore);
+                container.insertBefore(loadMore, container.firstChild);
+            } else {
+                const finished = document.createElement('div');
+                finished.className = 'finished';
+                finished.textContent = `“${query}” 输出完毕`;
+                container.insertBefore(finished, container.firstChild);
+            }
+        }
+
+        // 处理输入
+        async function handleInput() {
+            const query = input.value.trim();
+            if (!query) return;
+
+            const data = await fetchApi(query);
+            addMessages(data, query, true);
+            addLoadMoreOrFinished(query);
+            
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // 加载下一页
+        async function loadNextPage(query, loadMoreElement) {
+            const nextId = lastIdMap[query];
+            const data = await fetchApi(query, nextId);
+            
+            loadMoreElement.remove();
+            addMessages(data, query);
+            addLoadMoreOrFinished(query);
+
+            const newMessages = container.querySelectorAll('.message');
+            if (newMessages.length > 0) {
+                newMessages[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // 下载逻辑
+        function startDownload(element, fileId) {
+            const url = `/download/${fileId}`;
+
+            // 显示“正在下载”状态，一行，无链接
+            element.innerHTML = '正在下载';
+            element.className = 'download-link downloading';
+            element.onclick = null; // 移除点击事件
+
+            // 创建隐藏 iframe 触发下载
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = url;
+            document.body.appendChild(iframe);
+
+            // 检查下载状态
+            fetch(url, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        // 下载完成
+                        element.innerHTML = '下载完毕';
+                        element.className = 'download-link completed';
+                    } else {
+                        // 下载失败
+                        element.innerHTML = '下载失败';
+                        element.className = 'download-link error';
+                    }
+                    // 移除 iframe
+                    setTimeout(() => document.body.removeChild(iframe), 1000);
+                })
+                .catch(() => {
+                    element.innerHTML = '下载失败';
+                    element.className = 'download-link error';
+                    setTimeout(() => document.body.removeChild(iframe), 1000);
+                });
+        }
+
+        // 监听回车键
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleInput();
+            }
+        });
+    </script>
+</body>
+</html>
